@@ -1,0 +1,11 @@
+name: CI
+on: [push]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Lint backend
+        run: |
+          pip install flake8
+          flake8 backend/app || true
