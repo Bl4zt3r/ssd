@@ -1,0 +1,72 @@
+version: '3.8'
+services:
+  db:
+    image: postgis/postgis
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  mqtt:
+    image: eclipse-mosquitto
+    volumes:
+      - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    ports:
+      - "1883:1883"
+
+  backend:
+    build: ./backend
+    environment:
+      MQTT_HOST: ${MQTT_HOST}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: db
+    depends_on:
+      - db
+      - mqtt
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: ./worker
+    environment:
+      MQTT_HOST: ${MQTT_HOST}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: db
+    depends_on:
+      - db
+      - mqtt
+      - backend
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  sensor_simulator:
+    build: ./simulator
+    command: python sensor_simulator.py
+    environment:
+      MQTT_HOST: ${MQTT_HOST}
+      CONTAINER_ID: contenedor_1
+    depends_on:
+      - mqtt
+
+  processing_node:
+    build: ./simulator
+    command: python processing_node.py
+    environment:
+      MQTT_HOST: ${MQTT_HOST}
+      BACKEND_URL: ${BACKEND_URL}
+    depends_on:
+      - mqtt
+      - backend
